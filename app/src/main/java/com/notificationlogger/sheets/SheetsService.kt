@@ -152,8 +152,8 @@ class SheetsService(private val context: Context) {
         }
 
         try {
-            val success = appendRow(sheetId, accessToken, entry.toSheetRow())
-            if (success) {
+            val result = appendRow(sheetId, accessToken, entry.toSheetRow())
+            if (result.success) {
                 UploadResult.Success(1)
             } else {
                 UploadResult.Failure(Exception("Upload failed"), retryable = true)
@@ -165,53 +165,64 @@ class SheetsService(private val context: Context) {
     }
 
     /**
-     * Upload multiple entries in batch
+     * Upload multiple entries in batch and return row information for reading categories.
      */
-    suspend fun uploadBatch(entries: List<NotificationEntry>, sheetId: String): UploadResult = withContext(Dispatchers.IO) {
+    suspend fun uploadBatchWithRowInfo(
+        entries: List<NotificationEntry>,
+        sheetId: String
+    ): Pair<UploadResult, AppendResult?> = withContext(Dispatchers.IO) {
         if (entries.isEmpty()) {
-            return@withContext UploadResult.Success(0)
+            return@withContext Pair(UploadResult.Success(0), null)
         }
 
         if (sheetId.isBlank()) {
-            return@withContext UploadResult.Failure(
-                Exception("Sheet ID not configured"),
-                retryable = false
+            return@withContext Pair(
+                UploadResult.Failure(Exception("Sheet ID not configured"), retryable = false),
+                null
             )
         }
 
         val accessToken = getAccessToken()
         if (accessToken == null) {
-            return@withContext UploadResult.Failure(
-                Exception("Not authenticated"),
-                retryable = false
+            return@withContext Pair(
+                UploadResult.Failure(Exception("Not authenticated"), retryable = false),
+                null
             )
         }
 
         try {
             val rows = entries.map { it.toSheetRow() }
-            val success = appendRows(sheetId, accessToken, rows)
-            if (success) {
-                UploadResult.Success(entries.size)
+            val appendResult = appendRows(sheetId, accessToken, rows)
+            if (appendResult.success) {
+                Pair(UploadResult.Success(entries.size), appendResult)
             } else {
-                UploadResult.Failure(Exception("Batch upload failed"), retryable = true)
+                Pair(UploadResult.Failure(Exception("Batch upload failed"), retryable = true), null)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Batch upload failed", e)
-            UploadResult.Failure(e, retryable = isRetryable(e))
+            Pair(UploadResult.Failure(e, retryable = isRetryable(e)), null)
         }
+    }
+
+    /**
+     * Upload multiple entries in batch (legacy method without row info)
+     */
+    suspend fun uploadBatch(entries: List<NotificationEntry>, sheetId: String): UploadResult {
+        return uploadBatchWithRowInfo(entries, sheetId).first
     }
 
     /**
      * Append a single row to the sheet
      */
-    private fun appendRow(sheetId: String, accessToken: String, row: List<String>): Boolean {
+    private fun appendRow(sheetId: String, accessToken: String, row: List<String>): AppendResult {
         return appendRows(sheetId, accessToken, listOf(row))
     }
 
     /**
-     * Append multiple rows to the sheet using Sheets API
+     * Append multiple rows to the sheet using Sheets API.
+     * Returns AppendResult with the starting row number of appended data.
      */
-    private fun appendRows(sheetId: String, accessToken: String, rows: List<List<String>>): Boolean {
+    private fun appendRows(sheetId: String, accessToken: String, rows: List<List<String>>): AppendResult {
         val url = "$SHEETS_API_BASE/spreadsheets/$sheetId/values/Sheet1!A:F:append" +
                 "?valueInputOption=USER_ENTERED" +
                 "&insertDataOption=INSERT_ROWS"
@@ -235,19 +246,97 @@ class SheetsService(private val context: Context) {
 
         return try {
             val response = httpClient.newCall(request).execute()
+            val responseBody = response.body?.string()
             val success = response.isSuccessful
+            response.close()
+
             if (!success) {
-                Log.e(TAG, "Sheets API error: ${response.code} - ${response.body?.string()}")
+                Log.e(TAG, "Sheets API error: ${response.code} - $responseBody")
+                AppendResult(success = false)
             } else {
                 Log.d(TAG, "Successfully appended ${rows.size} rows to sheet")
+                // Parse updatedRange to get starting row number (e.g., "Sheet1!A5:F7" -> 5)
+                val startRow = parseStartRowFromResponse(responseBody)
+                AppendResult(success = true, startRow = startRow, rowCount = rows.size)
             }
-            response.close()
-            success
         } catch (e: Exception) {
             Log.e(TAG, "Network error", e)
-            false
+            AppendResult(success = false)
         }
     }
+
+    /**
+     * Parse the starting row number from Sheets API append response.
+     * Response contains "updates": { "updatedRange": "Sheet1!A5:F7" }
+     */
+    private fun parseStartRowFromResponse(responseBody: String?): Int? {
+        if (responseBody == null) return null
+        return try {
+            val json = JSONObject(responseBody)
+            val updatedRange = json.optJSONObject("updates")?.optString("updatedRange")
+            // Extract row number from range like "Sheet1!A5:F7" -> 5
+            updatedRange?.let {
+                val match = Regex("""!A(\d+):""").find(it)
+                match?.groupValues?.get(1)?.toIntOrNull()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to parse start row from response", e)
+            null
+        }
+    }
+
+    // ========================================================================
+    // Google Sheets Read
+    // ========================================================================
+
+    /**
+     * Read a single cell value from the sheet.
+     * @param sheetId The Google Sheet ID
+     * @param cell Cell reference like "Sheet1!I5"
+     * @return The cell value or null if empty/error
+     */
+    suspend fun readCell(sheetId: String, cell: String): String? = withContext(Dispatchers.IO) {
+        val accessToken = getAccessToken() ?: return@withContext null
+
+        val url = "$SHEETS_API_BASE/spreadsheets/$sheetId/values/$cell"
+
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("Authorization", "Bearer $accessToken")
+            .get()
+            .build()
+
+        try {
+            val response = httpClient.newCall(request).execute()
+            val responseBody = response.body?.string()
+            response.close()
+
+            if (!response.isSuccessful) {
+                Log.w(TAG, "Failed to read cell $cell: ${response.code}")
+                return@withContext null
+            }
+
+            // Parse response: { "values": [["cell_value"]] }
+            val json = JSONObject(responseBody ?: "{}")
+            val values = json.optJSONArray("values")
+            val firstRow = values?.optJSONArray(0)
+            val cellValue = firstRow?.optString(0)
+
+            if (cellValue.isNullOrBlank()) null else cellValue
+        } catch (e: Exception) {
+            Log.w(TAG, "Error reading cell $cell", e)
+            null
+        }
+    }
+
+    /**
+     * Result of append operation with row information
+     */
+    data class AppendResult(
+        val success: Boolean,
+        val startRow: Int? = null,
+        val rowCount: Int = 0
+    )
 
     /**
      * Check if error is retryable (network issues, rate limits)
