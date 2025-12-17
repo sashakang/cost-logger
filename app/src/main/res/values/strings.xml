@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">Notification Logger</string>
+    <string name="privacy_title">Privacy Notice</string>
+    <string name="privacy_message">This app reads notification content including private messages. Data is sent to your Google Sheet. Only notifications from apps you whitelist will be recorded.</string>
+    <string name="privacy_accept">I Understand</string>
+    <string name="privacy_decline">Cancel</string>
+    <string name="sign_in_google">Sign in with Google</string>
+    <string name="sign_out">Sign Out</string>
+    <string name="enable_notification_access">Enable Notification Access</string>
+    <string name="notification_access_required">Notification access is required for this app to work. Tap to open settings.</string>
+    <string name="sheet_id_hint">Google Sheet ID</string>
+    <string name="sheet_id_help">Find the ID in your sheet URL: docs.google.com/spreadsheets/d/{SHEET_ID}/edit</string>
+    <string name="select_apps">Select Apps to Track</string>
+    <string name="pending_uploads">Pending uploads: %d</string>
+    <string name="connected">Connected</string>
+    <string name="not_signed_in">Not signed in</string>
+</resources>
