@@ -212,7 +212,7 @@ class SheetsService(private val context: Context) {
      * Append multiple rows to the sheet using Sheets API
      */
     private fun appendRows(sheetId: String, accessToken: String, rows: List<List<String>>): Boolean {
-        val url = "$SHEETS_API_BASE/spreadsheets/$sheetId/values/Sheet1!A:E:append" +
+        val url = "$SHEETS_API_BASE/spreadsheets/$sheetId/values/Sheet1!A:F:append" +
                 "?valueInputOption=USER_ENTERED" +
                 "&insertDataOption=INSERT_ROWS"
 

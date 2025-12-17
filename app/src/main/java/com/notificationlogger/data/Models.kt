@@ -25,20 +25,29 @@ data class NotificationEntry(
     }
 
     /**
-     * Convert to list format for Google Sheets API
+     * Convert to list format for Google Sheets API.
+     * Columns: [UTC Timestamp, App Name, Title, Text, Local Timestamp, Notification Key]
      */
     fun toSheetRow(): List<String> = listOf(
+        formatTimestamp(timestamp, utc = true),
         appName,
         title,
         text,
-        formatTimestamp(timestamp),
+        formatTimestamp(timestamp, utc = false),
         notificationKey
     )
 
     companion object {
-        private fun formatTimestamp(timestamp: Long): String {
-            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
-            return sdf.format(java.util.Date(timestamp))
+        private fun formatTimestamp(timestamp: Long, utc: Boolean): String {
+            val instant = java.time.Instant.ofEpochMilli(timestamp)
+            return if (utc) {
+                java.time.format.DateTimeFormatter.ISO_INSTANT.format(instant)
+            } else {
+                java.time.format.DateTimeFormatter
+                    .ofPattern("yyyy-MM-dd HH:mm:ss")
+                    .withZone(java.time.ZoneId.systemDefault())
+                    .format(instant)
+            }
         }
     }
 }
