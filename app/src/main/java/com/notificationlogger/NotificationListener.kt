@@ -13,6 +13,7 @@ import com.notificationlogger.data.NotificationEntry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 /**
@@ -27,9 +28,16 @@ class NotificationListener : NotificationListenerService() {
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         prefs = AppPreferences.getInstance(applicationContext)
         database = NotificationDatabase.getInstance(applicationContext)
         Log.d(TAG, "NotificationListener created")
+    }
+
+    override fun onDestroy() {
+        instance = null
+        serviceScope.cancel()
+        super.onDestroy()
     }
 
     override fun onListenerConnected() {
@@ -150,9 +158,44 @@ class NotificationListener : NotificationListenerService() {
             )
     }
 
+    /**
+     * Scan all currently active notifications and log those not yet in database.
+     * Returns the count of newly logged notifications.
+     */
+    suspend fun scanActiveNotifications(): Int {
+        val activeNotifs = activeNotifications ?: emptyArray()
+
+        val entries = activeNotifs.mapNotNull { sbn ->
+            if (prefs.isWhitelisted(sbn.packageName)) {
+                sbn.toNotificationEntry()
+            } else null
+        }
+
+        var newCount = 0
+        entries.forEach { entry ->
+            val result = database.notificationDao().insertIfNotExists(entry)
+            if (result != -1L) newCount++
+        }
+
+        if (newCount > 0) {
+            scheduleUpload()
+        }
+
+        Log.d(TAG, "Scanned ${activeNotifs.size} active notifications, logged $newCount new entries")
+        return newCount
+    }
+
     companion object {
         private const val TAG = "NotificationListener"
         private const val UPLOAD_WORK_NAME = "notification_upload"
+
+        @Volatile
+        private var instance: NotificationListener? = null
+
+        /**
+         * Get the current service instance, or null if service is not running
+         */
+        fun getInstance(): NotificationListener? = instance
 
         /**
          * Check if notification listener permission is enabled

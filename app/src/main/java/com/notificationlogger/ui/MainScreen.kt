@@ -16,7 +16,7 @@ import com.notificationlogger.NotificationListener
 import com.notificationlogger.data.AppPreferences
 
 /** App version - update this when releasing new versions */
-const val APP_VERSION = "0.1.0.0"
+const val APP_VERSION = "0.3.1.0"
 
 /**
  * Main screen combining status, settings, and quick actions.
@@ -30,7 +30,8 @@ fun MainScreen(
     isSigningIn: Boolean,
     onNavigateToAppSelection: () -> Unit,
     onSignIn: () -> Unit,
-    onSignOut: () -> Unit
+    onSignOut: () -> Unit,
+    onRescanNotifications: () -> Unit
 ) {
     val context = LocalContext.current
     val prefs = remember { AppPreferences.getInstance(context) }
@@ -80,7 +81,8 @@ fun MainScreen(
                 pendingCount = pendingCount,
                 onEnableNotificationAccess = {
                     context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                }
+                },
+                onRescanNotifications = onRescanNotifications
             )
 
             // Google Sign In Card
@@ -101,6 +103,12 @@ fun MainScreen(
                 }
             )
 
+            // Categories Configuration
+            CategoriesCard(
+                categories = prefs.categories,
+                onCategoriesChange = { prefs.categories = it }
+            )
+
             // App Selection Button
             OutlinedButton(
                 onClick = onNavigateToAppSelection,
@@ -113,12 +121,57 @@ fun MainScreen(
 }
 
 @Composable
+private fun CategoriesCard(
+    categories: List<String>,
+    onCategoriesChange: (List<String>) -> Unit
+) {
+    var categoriesText by remember { mutableStateOf(categories.joinToString(", ")) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Categories",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            OutlinedTextField(
+                value = categoriesText,
+                onValueChange = { newText ->
+                    categoriesText = newText
+                    val newCategories = newText.split(",")
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() }
+                    onCategoriesChange(newCategories)
+                },
+                label = { Text("Categories (comma-separated)") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2,
+                maxLines = 4
+            )
+
+            Text(
+                text = "${categories.size} categories configured",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
 private fun StatusCard(
     isNotificationAccessEnabled: Boolean,
     isSignedIn: Boolean,
     userEmail: String?,
     pendingCount: Int,
-    onEnableNotificationAccess: () -> Unit
+    onEnableNotificationAccess: () -> Unit,
+    onRescanNotifications: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth()
@@ -171,6 +224,14 @@ private fun StatusCard(
                     text = pendingCount.toString(),
                     color = if (pendingCount > 0) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface
                 )
+            }
+
+            // Re-scan Active Notifications Button
+            Button(
+                onClick = onRescanNotifications,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Re-scan Active Notifications")
             }
         }
     }

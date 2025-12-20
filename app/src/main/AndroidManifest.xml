@@ -32,6 +32,12 @@
             </intent-filter>
         </activity>
 
+        <!-- CategorySelectionActivity for picking category from notification -->
+        <activity
+            android:name=".CategorySelectionActivity"
+            android:exported="false"
+            android:theme="@style/Theme.NotificationLogger" />
+
         <!-- NotificationListenerService (system-bound, no foreground needed) -->
         <service
             android:name=".NotificationListener"

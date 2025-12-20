@@ -1,0 +1,100 @@
+package com.notificationlogger
+
+import android.os.Bundle
+import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import com.notificationlogger.data.AppPreferences
+import com.notificationlogger.sheets.SheetsService
+import com.notificationlogger.ui.CategorySelectionScreen
+import com.notificationlogger.ui.theme.NotificationLoggerTheme
+import kotlinx.coroutines.launch
+
+/**
+ * Activity for selecting a category from a grid.
+ * Launched when user clicks on a category notification.
+ */
+class CategorySelectionActivity : ComponentActivity() {
+
+    private lateinit var sheetsService: SheetsService
+    private lateinit var prefs: AppPreferences
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        sheetsService = SheetsService.getInstance(applicationContext)
+        prefs = AppPreferences.getInstance(applicationContext)
+
+        val rowNumber = intent.getIntExtra(EXTRA_ROW_NUMBER, -1)
+        val transactionTitle = intent.getStringExtra(EXTRA_TRANSACTION_TITLE) ?: ""
+
+        if (rowNumber == -1) {
+            Toast.makeText(this, "Error: Missing row number", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
+
+        val sheetId = prefs.sheetId
+        if (sheetId.isNullOrBlank()) {
+            Toast.makeText(this, "Error: Sheet ID not configured", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
+
+        setContent {
+            NotificationLoggerTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    val scope = rememberCoroutineScope()
+                    var isLoading by remember { mutableStateOf(false) }
+
+                    CategorySelectionScreen(
+                        transactionTitle = transactionTitle,
+                        categories = prefs.categories,
+                        isLoading = isLoading,
+                        onCategorySelected = { category ->
+                            if (!isLoading) {
+                                isLoading = true
+                                scope.launch {
+                                    val success = sheetsService.writeCell(
+                                        sheetId,
+                                        "Sheet1!I$rowNumber",
+                                        category
+                                    )
+                                    if (success) {
+                                        Toast.makeText(
+                                            this@CategorySelectionActivity,
+                                            "Saved",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                        moveTaskToBack(true)
+                                    } else {
+                                        Toast.makeText(
+                                            this@CategorySelectionActivity,
+                                            "Failed to save. Try again.",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                        isLoading = false
+                                    }
+                                }
+                            }
+                        },
+                        onClose = { finish() }
+                    )
+                }
+            }
+        }
+    }
+
+    companion object {
+        const val EXTRA_ROW_NUMBER = "rowNumber"
+        const val EXTRA_TRANSACTION_TITLE = "transactionTitle"
+    }
+}

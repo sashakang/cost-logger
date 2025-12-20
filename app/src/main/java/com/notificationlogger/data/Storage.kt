@@ -27,6 +27,14 @@ class AppPreferences(context: Context) {
         get() = prefs.getBoolean(KEY_PRIVACY_ACCEPTED, false)
         set(value) = prefs.edit().putBoolean(KEY_PRIVACY_ACCEPTED, value).apply()
 
+    var categories: List<String>
+        get() = prefs.getString(KEY_CATEGORIES, DEFAULT_CATEGORIES)
+            ?.split(",")
+            ?.map { it.trim() }
+            ?.filter { it.isNotEmpty() }
+            ?: emptyList()
+        set(value) = prefs.edit().putString(KEY_CATEGORIES, value.joinToString(",")).apply()
+
     fun isWhitelisted(packageName: String): Boolean {
         return packageName in whitelistedApps
     }
@@ -44,6 +52,8 @@ class AppPreferences(context: Context) {
         private const val KEY_SHEET_ID = "google_sheet_id"
         private const val KEY_WHITELIST = "whitelisted_apps"
         private const val KEY_PRIVACY_ACCEPTED = "privacy_accepted"
+        private const val KEY_CATEGORIES = "categories"
+        private const val DEFAULT_CATEGORIES = "Food,Transport,Shopping,Bills,Entertainment,Health,Other"
 
         @Volatile
         private var instance: AppPreferences? = null
@@ -65,6 +75,9 @@ interface NotificationDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entry: NotificationEntry): Long
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIfNotExists(entry: NotificationEntry): Long
 
     @Update
     suspend fun update(entry: NotificationEntry)
@@ -99,7 +112,7 @@ interface NotificationDao {
 
 @Database(
     entities = [NotificationEntry::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class NotificationDatabase : RoomDatabase() {

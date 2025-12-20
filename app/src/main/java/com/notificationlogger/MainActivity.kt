@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -14,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -101,6 +103,7 @@ private fun AppNavigation(
 ) {
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     // Observe pending count
     val pendingCount by database.notificationDao().observePendingCount()
@@ -148,6 +151,17 @@ private fun AppNavigation(
                         sheetsService.signOut()
                         isSignedIn = false
                         userEmail = null
+                    }
+                },
+                onRescanNotifications = {
+                    scope.launch {
+                        val count = NotificationListener.getInstance()?.scanActiveNotifications()
+                        val message = when {
+                            count == null -> "Notification service not running"
+                            count == 0 -> "No new notifications found"
+                            else -> "Logged $count new notifications"
+                        }
+                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                     }
                 }
             )

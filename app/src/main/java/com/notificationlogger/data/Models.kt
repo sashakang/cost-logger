@@ -1,13 +1,17 @@
 package com.notificationlogger.data
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
  * Represents a captured notification entry.
  * Used both as a data class and Room entity.
  */
-@Entity(tableName = "notifications")
+@Entity(
+    tableName = "notifications",
+    indices = [Index(value = ["notificationKey"], unique = true)]
+)
 data class NotificationEntry(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,

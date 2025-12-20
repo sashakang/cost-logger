@@ -1,7 +1,9 @@
 package com.notificationlogger
 
 import android.Manifest
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
@@ -117,7 +119,7 @@ class UploadWorker(
         entries.forEachIndexed { index, entry ->
             val rowNum = startRow + index
             val category = sheetsService.readCell(sheetId, "Sheet1!I$rowNum") ?: "Uncategorized"
-            showCategoryNotification(entry, category)
+            showCategoryNotification(entry, category, rowNum)
         }
     }
 
@@ -137,20 +139,36 @@ class UploadWorker(
 
     /**
      * Show a notification with the transaction category.
+     * Clicking the notification opens CategorySelectionActivity to change the category.
      */
-    private fun showCategoryNotification(entry: NotificationEntry, category: String) {
+    private fun showCategoryNotification(entry: NotificationEntry, category: String, rowNumber: Int) {
+        // Create intent to open CategorySelectionActivity
+        val intent = Intent(applicationContext, CategorySelectionActivity::class.java).apply {
+            putExtra(CategorySelectionActivity.EXTRA_ROW_NUMBER, rowNumber)
+            putExtra(CategorySelectionActivity.EXTRA_TRANSACTION_TITLE, entry.title)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            applicationContext,
+            rowNumber, // unique request code per row
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val notification = NotificationCompat.Builder(applicationContext, NotificationLoggerApp.CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("Transaction Logged")
             .setContentText("${entry.title}: $category")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .build()
 
         try {
             NotificationManagerCompat.from(applicationContext)
                 .notify(entry.id.toInt(), notification)
-            Log.d(TAG, "Showed notification for ${entry.title}: $category")
+            Log.d(TAG, "Showed notification for ${entry.title}: $category (row $rowNumber)")
         } catch (e: SecurityException) {
             Log.w(TAG, "Cannot show notification - permission denied", e)
         }

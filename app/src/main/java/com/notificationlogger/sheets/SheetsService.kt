@@ -338,6 +338,49 @@ class SheetsService(private val context: Context) {
         val rowCount: Int = 0
     )
 
+    // ========================================================================
+    // Google Sheets Write
+    // ========================================================================
+
+    /**
+     * Write a value to a specific cell in the sheet.
+     * @param sheetId The Google Sheet ID
+     * @param cell Cell reference like "Sheet1!I5"
+     * @param value The value to write
+     * @return true if successful, false otherwise
+     */
+    suspend fun writeCell(sheetId: String, cell: String, value: String): Boolean = withContext(Dispatchers.IO) {
+        val accessToken = getAccessToken() ?: return@withContext false
+
+        val url = "$SHEETS_API_BASE/spreadsheets/$sheetId/values/$cell?valueInputOption=USER_ENTERED"
+
+        val requestBody = JSONObject().apply {
+            put("values", JSONArray().put(JSONArray().put(value)))
+        }
+
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("Authorization", "Bearer $accessToken")
+            .addHeader("Content-Type", "application/json")
+            .put(requestBody.toString().toRequestBody("application/json".toMediaType()))
+            .build()
+
+        try {
+            val response = httpClient.newCall(request).execute()
+            val success = response.isSuccessful
+            if (!success) {
+                Log.e(TAG, "Failed to write cell $cell: ${response.code} - ${response.body?.string()}")
+            } else {
+                Log.d(TAG, "Successfully wrote '$value' to $cell")
+            }
+            response.close()
+            success
+        } catch (e: Exception) {
+            Log.e(TAG, "Error writing cell $cell", e)
+            false
+        }
+    }
+
     /**
      * Check if error is retryable (network issues, rate limits)
      */
