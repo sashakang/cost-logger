@@ -74,7 +74,7 @@ class CategorySelectionActivity : ComponentActivity() {
                                             "Saved",
                                             Toast.LENGTH_SHORT
                                         ).show()
-                                        moveTaskToBack(true)
+                                        finishAndRemoveTask()
                                     } else {
                                         Toast.makeText(
                                             this@CategorySelectionActivity,
