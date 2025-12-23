@@ -5,6 +5,23 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
+ * Formats a timestamp for sheet export.
+ * @param timestamp Epoch milliseconds
+ * @param utc If true, formats as ISO instant (UTC), otherwise local time
+ */
+private fun formatTimestamp(timestamp: Long, utc: Boolean): String {
+    val instant = java.time.Instant.ofEpochMilli(timestamp)
+    return if (utc) {
+        java.time.format.DateTimeFormatter.ISO_INSTANT.format(instant)
+    } else {
+        java.time.format.DateTimeFormatter
+            .ofPattern("yyyy-MM-dd HH:mm:ss")
+            .withZone(java.time.ZoneId.systemDefault())
+            .format(instant)
+    }
+}
+
+/**
  * Represents a captured notification entry.
  * Used both as a data class and Room entity.
  */
@@ -40,20 +57,38 @@ data class NotificationEntry(
         formatTimestamp(timestamp, utc = false),
         notificationKey
     )
+}
 
-    companion object {
-        private fun formatTimestamp(timestamp: Long, utc: Boolean): String {
-            val instant = java.time.Instant.ofEpochMilli(timestamp)
-            return if (utc) {
-                java.time.format.DateTimeFormatter.ISO_INSTANT.format(instant)
-            } else {
-                java.time.format.DateTimeFormatter
-                    .ofPattern("yyyy-MM-dd HH:mm:ss")
-                    .withZone(java.time.ZoneId.systemDefault())
-                    .format(instant)
-            }
-        }
-    }
+/**
+ * Represents a manual transaction entry.
+ * Used both as a data class and Room entity.
+ */
+@Entity(
+    tableName = "transactions",
+    indices = [Index(value = ["timestamp"])]
+)
+data class TransactionEntry(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val account: String,
+    val amount: Double,
+    val currency: String,
+    val category: String,
+    val timestamp: Long = System.currentTimeMillis(),
+    val uploaded: Boolean = false
+) {
+    /**
+     * Convert to list format for Google Sheets API.
+     * Columns: [UTC Timestamp, Account, Title, Description, Local Timestamp, Transaction Key]
+     */
+    fun toSheetRow(): List<String> = listOf(
+        formatTimestamp(timestamp, utc = true),
+        account,
+        "Manual Entry",
+        "$currency $amount",
+        formatTimestamp(timestamp, utc = false),
+        "manual_${timestamp}_$id"
+    )
 }
 
 /**

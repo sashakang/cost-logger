@@ -31,7 +31,9 @@ class CategorySelectionActivity : ComponentActivity() {
         prefs = AppPreferences.getInstance(applicationContext)
 
         val rowNumber = intent.getIntExtra(EXTRA_ROW_NUMBER, -1)
+        val appName = intent.getStringExtra(EXTRA_APP_NAME) ?: ""
         val transactionTitle = intent.getStringExtra(EXTRA_TRANSACTION_TITLE) ?: ""
+        val transactionText = intent.getStringExtra(EXTRA_TRANSACTION_TEXT) ?: ""
 
         if (rowNumber == -1) {
             Toast.makeText(this, "Error: Missing row number", Toast.LENGTH_SHORT).show()
@@ -55,8 +57,12 @@ class CategorySelectionActivity : ComponentActivity() {
                     val scope = rememberCoroutineScope()
                     var isLoading by remember { mutableStateOf(false) }
 
+                    val rangePrefix = prefs.getSheetRangePrefix()
+
                     CategorySelectionScreen(
+                        appName = appName,
                         transactionTitle = transactionTitle,
+                        transactionText = transactionText,
                         categories = prefs.categories,
                         isLoading = isLoading,
                         onCategorySelected = { category ->
@@ -65,7 +71,7 @@ class CategorySelectionActivity : ComponentActivity() {
                                 scope.launch {
                                     val success = sheetsService.writeCell(
                                         sheetId,
-                                        "Sheet1!I$rowNumber",
+                                        "${rangePrefix}I$rowNumber",
                                         category
                                     )
                                     if (success) {
@@ -74,7 +80,8 @@ class CategorySelectionActivity : ComponentActivity() {
                                             "Saved",
                                             Toast.LENGTH_SHORT
                                         ).show()
-                                        finishAndRemoveTask()
+                                        // Minimize the app instead of closing
+                                        moveTaskToBack(true)
                                     } else {
                                         Toast.makeText(
                                             this@CategorySelectionActivity,
@@ -95,6 +102,8 @@ class CategorySelectionActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_ROW_NUMBER = "rowNumber"
+        const val EXTRA_APP_NAME = "appName"
         const val EXTRA_TRANSACTION_TITLE = "transactionTitle"
+        const val EXTRA_TRANSACTION_TEXT = "transactionText"
     }
 }

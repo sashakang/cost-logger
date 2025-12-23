@@ -1,8 +1,10 @@
 # IN PROGRESS
+[ ] And documentation screen.  
 
-# BACKLOG
-[ ] Add timestamp UTC to the left.  
-[ ] Add qualification to the interface.  
-[ ] Force re-read all open notifications in case some of them were missed.  
+# BACKLOG  
 
 # DONE
+[x] Add timestamp UTC to the left.  
+[x] Add qualification to the interface.  
+[x] Force re-read all open notifications in case some of them were missed.
+[x] Allow for negative amounts.  

@@ -1,0 +1,39 @@
+Analyze this Android app implementation plan for architectural concerns:
+
+## Plan to Review:
+[See .claude/plan_review.md]
+
+## Evaluation Criteria:
+
+1. **Over-Engineering Detection**
+   - Are there unnecessary abstraction layers proposed?
+   - Could any proposed interfaces be replaced with concrete implementations?
+   - Are there planned classes that will only have one implementation?
+
+2. **Pattern Appropriateness**
+   - Is the proposed architecture (MVVM/MVI/MVP) appropriate for the feature scope?
+   - Are UseCase classes justified, or could logic live in ViewModel?
+   - Is the Repository pattern needed, or is direct data access simpler?
+
+3. **Complexity vs Value**
+   - Does each proposed layer add testability or maintainability value?
+   - Could the same goal be achieved with fewer components?
+   - Are there proposed abstractions solving hypothetical future problems?
+
+4. **Android-Specific Considerations**
+   - Are lifecycle-aware components used appropriately (not over-used)?
+   - Is dependency injection setup proportional to app complexity?
+   - Are Compose vs View decisions justified?
+
+## Current Context:
+- Existing MainActivity already has Activity-level business logic
+- No ViewModels currently exist in the app
+- App uses direct database access throughout
+- Similar patterns used for notification rescanning
+
+## Output Format:
+- APPROVE: Plan is appropriately scoped
+- SIMPLIFY: List specific reductions with rationale
+- REJECT: Fundamental over-engineering concerns
+
+Provide specific, actionable feedback.

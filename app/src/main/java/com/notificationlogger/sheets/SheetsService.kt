@@ -166,10 +166,12 @@ class SheetsService(private val context: Context) {
 
     /**
      * Upload multiple entries in batch and return row information for reading categories.
+     * @param tabName Optional tab/worksheet name. Empty string uses the first sheet.
      */
     suspend fun uploadBatchWithRowInfo(
         entries: List<NotificationEntry>,
-        sheetId: String
+        sheetId: String,
+        tabName: String = ""
     ): Pair<UploadResult, AppendResult?> = withContext(Dispatchers.IO) {
         if (entries.isEmpty()) {
             return@withContext Pair(UploadResult.Success(0), null)
@@ -192,7 +194,7 @@ class SheetsService(private val context: Context) {
 
         try {
             val rows = entries.map { it.toSheetRow() }
-            val appendResult = appendRows(sheetId, accessToken, rows)
+            val appendResult = appendRows(sheetId, accessToken, rows, tabName)
             if (appendResult.success) {
                 Pair(UploadResult.Success(entries.size), appendResult)
             } else {
@@ -207,23 +209,47 @@ class SheetsService(private val context: Context) {
     /**
      * Upload multiple entries in batch (legacy method without row info)
      */
-    suspend fun uploadBatch(entries: List<NotificationEntry>, sheetId: String): UploadResult {
-        return uploadBatchWithRowInfo(entries, sheetId).first
+    suspend fun uploadBatch(entries: List<NotificationEntry>, sheetId: String, tabName: String = ""): UploadResult {
+        return uploadBatchWithRowInfo(entries, sheetId, tabName).first
+    }
+
+    /**
+     * Generic method to append rows to Google Sheets.
+     * Useful for uploading any data that can be converted to List<List<String>>.
+     *
+     * @param sheetId The Google Sheet ID
+     * @param rows The rows to append (each row is a list of strings)
+     * @param tabName Optional tab/worksheet name. Empty string uses the first sheet.
+     * @return AppendResult containing success status and starting row number
+     */
+    suspend fun appendRowsGeneric(sheetId: String, rows: List<List<String>>, tabName: String = ""): AppendResult = withContext(Dispatchers.IO) {
+        if (rows.isEmpty()) {
+            return@withContext AppendResult(success = true, startRow = null, rowCount = 0)
+        }
+
+        val accessToken = getAccessToken()
+        if (accessToken == null) {
+            return@withContext AppendResult(success = false)
+        }
+
+        appendRows(sheetId, accessToken, rows, tabName)
     }
 
     /**
      * Append a single row to the sheet
      */
-    private fun appendRow(sheetId: String, accessToken: String, row: List<String>): AppendResult {
-        return appendRows(sheetId, accessToken, listOf(row))
+    private fun appendRow(sheetId: String, accessToken: String, row: List<String>, tabName: String = ""): AppendResult {
+        return appendRows(sheetId, accessToken, listOf(row), tabName)
     }
 
     /**
      * Append multiple rows to the sheet using Sheets API.
      * Returns AppendResult with the starting row number of appended data.
+     * @param tabName Optional tab/worksheet name. Empty string uses the first sheet.
      */
-    private fun appendRows(sheetId: String, accessToken: String, rows: List<List<String>>): AppendResult {
-        val url = "$SHEETS_API_BASE/spreadsheets/$sheetId/values/Sheet1!A:F:append" +
+    private fun appendRows(sheetId: String, accessToken: String, rows: List<List<String>>, tabName: String = ""): AppendResult {
+        val rangePrefix = if (tabName.isBlank()) "" else "$tabName!"
+        val url = "$SHEETS_API_BASE/spreadsheets/$sheetId/values/${rangePrefix}A:F:append" +
                 "?valueInputOption=USER_ENTERED" +
                 "&insertDataOption=INSERT_ROWS"
 
@@ -267,16 +293,16 @@ class SheetsService(private val context: Context) {
 
     /**
      * Parse the starting row number from Sheets API append response.
-     * Response contains "updates": { "updatedRange": "Sheet1!A5:F7" }
+     * Response contains "updates": { "updatedRange": "Sheet1!A5:F7" } or "A5:F7"
      */
     private fun parseStartRowFromResponse(responseBody: String?): Int? {
         if (responseBody == null) return null
         return try {
             val json = JSONObject(responseBody)
             val updatedRange = json.optJSONObject("updates")?.optString("updatedRange")
-            // Extract row number from range like "Sheet1!A5:F7" -> 5
+            // Extract row number from range like "Sheet1!A5:F7" or "A5:F7" -> 5
             updatedRange?.let {
-                val match = Regex("""!A(\d+):""").find(it)
+                val match = Regex("""A(\d+):""").find(it)
                 match?.groupValues?.get(1)?.toIntOrNull()
             }
         } catch (e: Exception) {

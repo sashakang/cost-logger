@@ -25,6 +25,7 @@ class NotificationListener : NotificationListenerService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var prefs: AppPreferences
     private lateinit var database: NotificationDatabase
+    private var isConnected = false
 
     override fun onCreate() {
         super.onCreate()
@@ -36,17 +37,20 @@ class NotificationListener : NotificationListenerService() {
 
     override fun onDestroy() {
         instance = null
+        isConnected = false
         serviceScope.cancel()
         super.onDestroy()
     }
 
     override fun onListenerConnected() {
         super.onListenerConnected()
+        isConnected = true
         Log.d(TAG, "NotificationListener connected")
     }
 
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
+        isConnected = false
         Log.d(TAG, "NotificationListener disconnected - requesting rebind")
         // Try to reconnect if user didn't explicitly revoke
         requestRebind(ComponentName(this, NotificationListener::class.java))
@@ -164,6 +168,14 @@ class NotificationListener : NotificationListenerService() {
      */
     suspend fun scanActiveNotifications(): Int {
         val activeNotifs = activeNotifications ?: emptyArray()
+        Log.d(TAG, "=== SCAN START ===")
+        Log.d(TAG, "Total active notifications: ${activeNotifs.size}")
+        Log.d(TAG, "Whitelisted apps: ${prefs.whitelistedApps}")
+
+        activeNotifs.forEach { sbn ->
+            val isWhitelisted = prefs.isWhitelisted(sbn.packageName)
+            Log.d(TAG, "  - ${sbn.packageName}: whitelisted=$isWhitelisted")
+        }
 
         val entries = activeNotifs.mapNotNull { sbn ->
             if (prefs.isWhitelisted(sbn.packageName)) {
@@ -171,9 +183,12 @@ class NotificationListener : NotificationListenerService() {
             } else null
         }
 
+        Log.d(TAG, "Entries after whitelist filter: ${entries.size}")
+
         var newCount = 0
         entries.forEach { entry ->
             val result = database.notificationDao().insertIfNotExists(entry)
+            Log.d(TAG, "  Insert ${entry.appName}: result=$result (new=${result != -1L})")
             if (result != -1L) newCount++
         }
 
@@ -181,9 +196,14 @@ class NotificationListener : NotificationListenerService() {
             scheduleUpload()
         }
 
-        Log.d(TAG, "Scanned ${activeNotifs.size} active notifications, logged $newCount new entries")
+        Log.d(TAG, "=== SCAN END: $newCount new entries ===")
         return newCount
     }
+
+    /**
+     * Check if the service is connected to Android's notification system
+     */
+    fun isServiceConnected(): Boolean = isConnected
 
     companion object {
         private const val TAG = "NotificationListener"
