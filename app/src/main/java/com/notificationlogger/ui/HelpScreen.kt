@@ -15,7 +15,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import dev.jeziellago.compose.markdowntext.MarkdownText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.IOException
@@ -115,9 +114,7 @@ fun HelpScreen(
 }
 
 /**
- * Custom markdown renderer that handles drawable image references.
- * Processes markdown and replaces image references like ![alt](drawable:help_placeholder) 
- * with Compose Image composables, then renders the rest with MarkdownText.
+ * Custom markdown renderer that handles basic markdown syntax and drawable image references.
  */
 @Composable
 private fun MarkdownContent(
@@ -130,52 +127,117 @@ private fun MarkdownContent(
     Column(modifier = modifier) {
         var i = 0
         while (i < lines.size) {
-            val line = lines[i]
+            val line = lines[i].trim()
             
-            // Handle images with drawable: scheme
-            val imageMatch = Regex("!\\[.*?\\]\\(drawable:([\\w_]+)\\)").find(line)
-            if (imageMatch != null) {
-                val drawableName = imageMatch.groupValues[1]
-                val resourceId = context.resources.getIdentifier(
-                    drawableName,
-                    "drawable",
-                    context.packageName
-                )
-                if (resourceId != 0) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Image(
-                        painter = painterResource(id = resourceId),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        contentScale = ContentScale.Fit
+            when {
+                // Handle images with drawable: scheme
+                line.matches(Regex("!\\[.*?\\]\\(drawable:([\\w_]+)\\)")) -> {
+                    val imageMatch = Regex("drawable:([\\w_]+)").find(line)
+                    val drawableName = imageMatch?.groupValues?.get(1)
+                    if (drawableName != null) {
+                        val resourceId = context.resources.getIdentifier(
+                            drawableName,
+                            "drawable",
+                            context.packageName
+                        )
+                        if (resourceId != 0) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Image(
+                                painter = painterResource(id = resourceId),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                contentScale = ContentScale.Fit
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+                    i++
+                }
+                // Handle H1 headers
+                line.startsWith("# ") -> {
+                    Text(
+                        text = line.removePrefix("# "),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(vertical = 16.dp)
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    i++
                 }
-                i++
-                continue
-            }
-            
-            // For other content, collect lines until next image or end
-            val contentLines = mutableListOf<String>()
-            while (i < lines.size) {
-                val currentLine = lines[i]
-                if (Regex("!\\[.*?\\]\\(drawable:([\\w_]+)\\)").containsMatchIn(currentLine)) {
-                    break
+                // Handle H2 headers
+                line.startsWith("## ") -> {
+                    Text(
+                        text = line.removePrefix("## "),
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+                    i++
                 }
-                contentLines.add(currentLine)
-                i++
-            }
-            
-            // Render collected content as markdown
-            if (contentLines.isNotEmpty()) {
-                val content = contentLines.joinToString("\n")
-                if (content.trim().isNotEmpty()) {
-                    MarkdownText(
-                        markdown = content,
+                // Handle H3 headers
+                line.startsWith("### ") -> {
+                    Text(
+                        text = line.removePrefix("### "),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                    i++
+                }
+                // Handle italic text (markdown style with *)
+                line.startsWith("*") && line.endsWith("*") && !line.startsWith("**") && line.length > 2 -> {
+                    Text(
+                        text = line.removeSurrounding("*"),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(vertical = 4.dp)
                     )
+                    i++
+                }
+                // Handle numbered lists
+                line.matches(Regex("^\\d+\\.\\s+.*")) -> {
+                    val content = line.replaceFirst(Regex("^\\d+\\.\\s+"), "")
+                    Row(
+                        modifier = Modifier.padding(vertical = 2.dp, horizontal = 8.dp)
+                    ) {
+                        Text(
+                            text = "• ",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Text(
+                            text = content,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                    i++
+                }
+                // Handle bullet lists
+                line.startsWith("- ") -> {
+                    Text(
+                        text = "• ${line.removePrefix("- ")}",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(vertical = 2.dp, horizontal = 8.dp)
+                    )
+                    i++
+                }
+                // Handle empty lines
+                line.isBlank() -> {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    i++
+                }
+                // Regular text paragraphs
+                else -> {
+                    // Process bold text (**text**)
+                    val processedText = line.replace(Regex("\\*\\*(.*?)\\*\\*")) { matchResult ->
+                        matchResult.groupValues[1]
+                    }
+                    Text(
+                        text = processedText,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                    i++
                 }
             }
         }
