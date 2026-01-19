@@ -10,7 +10,7 @@ Before you can use the app, you'll need to complete a few quick setup steps. Thi
 
 First, we need permission to read notifications from your phone. Here's how:
 
-1. Tap the "Enable" button when you see the notification access prompt
+1. Tap the "Open Settings" button when you see the notification access prompt
 2. You'll be taken to your phone's settings
 3. Find this app in the list and turn on the switch
 4. Come back to the app
@@ -18,6 +18,14 @@ First, we need permission to read notifications from your phone. Here's how:
 ![Notification Settings](drawable:help_setup_notification_access)
 
 *You'll see a screen like this - just turn on the switch next to the app name.*
+
+**Important:** If you see a "Restricted setting" message that says the setting is unavailable, don't worry! This happens sometimes with debug builds. Here's how to fix it:
+
+1. Go back to your phone's main Settings
+2. Tap "Apps" or "Application manager"
+3. Find "Notification Logger" in the list
+4. Tap on it, then tap "Notification access" or "Special app access"
+5. Turn on the switch there
 
 That's it! The app can now read notifications from the apps you choose to track.
 
@@ -173,6 +181,13 @@ If you're having trouble with permissions:
 - Find this app and make sure it's turned on
 - If it's already on, try turning it off and on again
 
+**"Restricted setting" Message:**
+If you see a message saying "For your security, this setting is currently unavailable":
+- This is normal for debug builds or apps not from the Play Store
+- Go to Settings → Apps → Notification Logger → Notification access
+- Enable it from there instead
+- The app will work the same way once enabled
+
 **Google Account:**
 - Make sure you're signed in to Google in the app
 - If sign-in keeps failing, try signing out and signing back in
@@ -182,4 +197,5 @@ If you're having trouble with permissions:
 - Try closing the app completely and opening it again
 - Make sure your phone's software is up to date
 - Restart your phone if nothing else works
+
 
