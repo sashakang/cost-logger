@@ -135,7 +135,7 @@ class UploadWorker(
         entries.forEachIndexed { index, entry ->
             val rowNum = startRow + index
             val category = sheetsService.readCell(sheetId, "${rangePrefix}I$rowNum") ?: "Uncategorized"
-            showCategoryNotification(entry, category, rowNum)
+            showCategoryNotification(entry, category, rowNum, tabName)
         }
     }
 
@@ -213,13 +213,14 @@ class UploadWorker(
      * Show a notification with the transaction category.
      * Clicking the notification opens CategorySelectionActivity to change the category.
      */
-    private fun showCategoryNotification(entry: NotificationEntry, category: String, rowNumber: Int) {
+    private fun showCategoryNotification(entry: NotificationEntry, category: String, rowNumber: Int, tabName: String) {
         // Create intent to open CategorySelectionActivity
         val intent = Intent(applicationContext, CategorySelectionActivity::class.java).apply {
             putExtra(CategorySelectionActivity.EXTRA_ROW_NUMBER, rowNumber)
             putExtra(CategorySelectionActivity.EXTRA_APP_NAME, entry.appName)
             putExtra(CategorySelectionActivity.EXTRA_TRANSACTION_TITLE, entry.title)
             putExtra(CategorySelectionActivity.EXTRA_TRANSACTION_TEXT, entry.text)
+            putExtra(CategorySelectionActivity.EXTRA_TAB_NAME, tabName)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
 

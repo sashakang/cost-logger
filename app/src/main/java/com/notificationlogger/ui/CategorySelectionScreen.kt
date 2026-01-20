@@ -25,7 +25,9 @@ fun CategorySelectionScreen(
     transactionText: String,
     categories: List<String>,
     isLoading: Boolean,
+    selectedCategory: String? = null,
     onCategorySelected: (String) -> Unit,
+    onApprove: (() -> Unit)? = null,
     onClose: () -> Unit
 ) {
     Scaffold(
@@ -107,6 +109,7 @@ fun CategorySelectionScreen(
                             CategoryButton(
                                 text = category,
                                 enabled = !isLoading,
+                                isSelected = category == selectedCategory,
                                 onClick = { onCategorySelected(category) }
                             )
                         }
@@ -118,6 +121,50 @@ fun CategorySelectionScreen(
                         )
                     }
                 }
+
+                // Selected category display and Approve button
+                if (selectedCategory != null) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Selected:",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                    Text(
+                                        text = selectedCategory,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                                if (onApprove != null) {
+                                    Button(
+                                        onClick = onApprove,
+                                        enabled = !isLoading
+                                    ) {
+                                        Text("Approve")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -127,11 +174,22 @@ fun CategorySelectionScreen(
 private fun CategoryButton(
     text: String,
     enabled: Boolean,
+    isSelected: Boolean = false,
     onClick: () -> Unit
 ) {
+    val buttonColors = if (isSelected) {
+        ButtonDefaults.filledTonalButtonColors(
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        )
+    } else {
+        ButtonDefaults.filledTonalButtonColors()
+    }
+
     FilledTonalButton(
         onClick = onClick,
         enabled = enabled,
+        colors = buttonColors,
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(1f),

@@ -152,7 +152,7 @@ class SheetsService(private val context: Context) {
         }
 
         try {
-            val result = appendRow(sheetId, accessToken, entry.toSheetRow())
+            val result = appendRow(sheetId, accessToken, entry.toSheetRow(), "")
             if (result.success) {
                 UploadResult.Success(1)
             } else {
@@ -281,8 +281,25 @@ class SheetsService(private val context: Context) {
                 AppendResult(success = false)
             } else {
                 Log.d(TAG, "Successfully appended ${rows.size} rows to sheet")
-                // Parse updatedRange to get starting row number (e.g., "Sheet1!A5:F7" -> 5)
+                // Parse updatedRange to get starting row number (e.g., "Sheet1!A5:L7" -> 5)
                 val startRow = parseStartRowFromResponse(responseBody)
+                if (startRow != null) {
+                    val sheetTabId = getSheetTabId(accessToken, sheetId, tabName)
+                    if (sheetTabId != null) {
+                        val copySuccess = copyTemplateToRows(
+                            accessToken = accessToken,
+                            spreadsheetId = sheetId,
+                            sheetTabId = sheetTabId,
+                            startRow = startRow,
+                            rowCount = rows.size
+                        )
+                        if (!copySuccess) {
+                            Log.w(TAG, "Failed to copy template to rows $startRow-${startRow + rows.size - 1}")
+                        }
+                    } else {
+                        Log.w(TAG, "Unable to resolve sheet tab ID for template copy")
+                    }
+                }
                 AppendResult(success = true, startRow = startRow, rowCount = rows.size)
             }
         } catch (e: Exception) {
@@ -293,14 +310,14 @@ class SheetsService(private val context: Context) {
 
     /**
      * Parse the starting row number from Sheets API append response.
-     * Response contains "updates": { "updatedRange": "Sheet1!A5:F7" } or "A5:F7"
+     * Response contains "updates": { "updatedRange": "Sheet1!A5:L7" } or "A5:L7"
      */
     private fun parseStartRowFromResponse(responseBody: String?): Int? {
         if (responseBody == null) return null
         return try {
             val json = JSONObject(responseBody)
             val updatedRange = json.optJSONObject("updates")?.optString("updatedRange")
-            // Extract row number from range like "Sheet1!A5:F7" or "A5:F7" -> 5
+            // Extract row number from range like "Sheet1!A5:L7" or "A5:L7" -> 5
             updatedRange?.let {
                 val match = Regex("""A(\d+):""").find(it)
                 match?.groupValues?.get(1)?.toIntOrNull()
@@ -308,6 +325,110 @@ class SheetsService(private val context: Context) {
         } catch (e: Exception) {
             Log.w(TAG, "Failed to parse start row from response", e)
             null
+        }
+    }
+
+    /**
+     * Resolve the numeric sheet/tab ID for a given tab name.
+     */
+    private fun getSheetTabId(accessToken: String, spreadsheetId: String, tabName: String): Int? {
+        val url = "$SHEETS_API_BASE/spreadsheets/$spreadsheetId?fields=sheets(properties(sheetId,title))"
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("Authorization", "Bearer $accessToken")
+            .get()
+            .build()
+
+        return try {
+            val response = httpClient.newCall(request).execute()
+            val responseBody = response.body?.string()
+            response.close()
+
+            if (!response.isSuccessful || responseBody == null) {
+                Log.w(TAG, "Failed to read sheet metadata: ${response.code}")
+                return null
+            }
+
+            val json = JSONObject(responseBody)
+            val sheets = json.optJSONArray("sheets") ?: return null
+            for (i in 0 until sheets.length()) {
+                val sheet = sheets.optJSONObject(i) ?: continue
+                val properties = sheet.optJSONObject("properties") ?: continue
+                val title = properties.optString("title")
+                val id = properties.optInt("sheetId", -1)
+                if (id != -1 && (tabName.isBlank() || title == tabName)) {
+                    return id
+                }
+            }
+            null
+        } catch (e: Exception) {
+            Log.w(TAG, "Error reading sheet metadata", e)
+            null
+        }
+    }
+
+    /**
+     * Copy formulas + formatting from template row (G2:L2) into appended rows.
+     */
+    private fun copyTemplateToRows(
+        accessToken: String,
+        spreadsheetId: String,
+        sheetTabId: Int,
+        startRow: Int,
+        rowCount: Int
+    ): Boolean {
+        if (rowCount <= 0) return true
+
+        val templateStartRowIndex = 1
+        val templateEndRowIndex = 2
+        val templateStartColumnIndex = 6
+        val templateEndColumnIndex = 12
+
+        val destinationStartRowIndex = startRow - 1
+        val destinationEndRowIndex = destinationStartRowIndex + rowCount
+
+        val requestBody = JSONObject().apply {
+            put("requests", JSONArray().put(
+                JSONObject().put("copyPaste", JSONObject().apply {
+                    put("source", JSONObject().apply {
+                        put("sheetId", sheetTabId)
+                        put("startRowIndex", templateStartRowIndex)
+                        put("endRowIndex", templateEndRowIndex)
+                        put("startColumnIndex", templateStartColumnIndex)
+                        put("endColumnIndex", templateEndColumnIndex)
+                    })
+                    put("destination", JSONObject().apply {
+                        put("sheetId", sheetTabId)
+                        put("startRowIndex", destinationStartRowIndex)
+                        put("endRowIndex", destinationEndRowIndex)
+                        put("startColumnIndex", templateStartColumnIndex)
+                        put("endColumnIndex", templateEndColumnIndex)
+                    })
+                    put("pasteType", "PASTE_NORMAL")
+                    put("pasteOrientation", "NORMAL")
+                })
+            ))
+        }
+
+        val url = "$SHEETS_API_BASE/spreadsheets/$spreadsheetId:batchUpdate"
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("Authorization", "Bearer $accessToken")
+            .addHeader("Content-Type", "application/json")
+            .post(requestBody.toString().toRequestBody("application/json".toMediaType()))
+            .build()
+
+        return try {
+            val response = httpClient.newCall(request).execute()
+            val success = response.isSuccessful
+            if (!success) {
+                Log.w(TAG, "Template copy failed: ${response.code} - ${response.body?.string()}")
+            }
+            response.close()
+            success
+        } catch (e: Exception) {
+            Log.w(TAG, "Template copy failed", e)
+            false
         }
     }
 
@@ -353,6 +474,122 @@ class SheetsService(private val context: Context) {
             Log.w(TAG, "Error reading cell $cell", e)
             null
         }
+    }
+
+    /**
+     * Read a range of cells from the sheet.
+     * @param sheetId The Google Sheet ID
+     * @param range Range reference like "Sheet1!G1:L1" or "G1:L1"
+     * @return List of cell values in order, or empty list if error/empty
+     */
+    suspend fun readRange(sheetId: String, range: String): List<String> = withContext(Dispatchers.IO) {
+        val accessToken = getAccessToken() ?: return@withContext emptyList()
+
+        val url = "$SHEETS_API_BASE/spreadsheets/$sheetId/values/$range"
+
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("Authorization", "Bearer $accessToken")
+            .get()
+            .build()
+
+        try {
+            val response = httpClient.newCall(request).execute()
+            val responseBody = response.body?.string()
+            response.close()
+
+            if (!response.isSuccessful) {
+                Log.w(TAG, "Failed to read range $range: ${response.code}")
+                return@withContext emptyList()
+            }
+
+            // Parse response: { "values": [["val1", "val2", "val3", ...]] }
+            val json = JSONObject(responseBody ?: "{}")
+            val values = json.optJSONArray("values")
+            val firstRow = values?.optJSONArray(0)
+
+            if (firstRow == null) {
+                return@withContext emptyList()
+            }
+
+            val result = mutableListOf<String>()
+            for (i in 0 until firstRow.length()) {
+                val value = firstRow.optString(i, "")
+                result.add(value)
+            }
+            result
+        } catch (e: Exception) {
+            Log.w(TAG, "Error reading range $range", e)
+            emptyList()
+        }
+    }
+
+    /**
+     * Read a full row from the sheet (columns A-L).
+     * @param sheetId The Google Sheet ID
+     * @param rowNumber The row number (1-based)
+     * @param tabName Optional tab/worksheet name. Empty string uses the first sheet.
+     * @return List of cell values in order [A, B, C, D, E, F, G, H, I, J, K, L], or empty list if error/empty
+     */
+    suspend fun readRow(sheetId: String, rowNumber: Int, tabName: String = ""): List<String> = withContext(Dispatchers.IO) {
+        val rangePrefix = if (tabName.isBlank()) "" else "$tabName!"
+        val range = "${rangePrefix}A$rowNumber:L$rowNumber"
+        readRange(sheetId, range)
+    }
+
+    /**
+     * Result of finding next uncategorized row
+     */
+    data class UncategorizedRowResult(
+        val rowNumber: Int,
+        val rowData: List<String> // Full row data [A, B, C, D, E, F, G, H, I, J, K, L]
+    )
+
+    /**
+     * Find the next row that needs categorization (column I is empty, blank, or "Uncategorized").
+     * @param sheetId The Google Sheet ID
+     * @param startRow The row number to start searching from (will search from startRow + 1)
+     * @param tabName Optional tab/worksheet name. Empty string uses the first sheet.
+     * @param maxRows Maximum number of rows to search (default 100)
+     * @return UncategorizedRowResult with row number and data, or null if not found
+     */
+    suspend fun findNextUncategorizedRow(
+        sheetId: String,
+        startRow: Int,
+        tabName: String = "",
+        maxRows: Int = 100
+    ): UncategorizedRowResult? = withContext(Dispatchers.IO) {
+        val rangePrefix = if (tabName.isBlank()) "" else "$tabName!"
+        
+        // Search from startRow + 1 up to startRow + maxRows
+        for (rowNum in (startRow + 1)..(startRow + maxRows)) {
+            try {
+                // Read column I for this row to check if it's uncategorized
+                val categoryCell = "${rangePrefix}I$rowNum"
+                val category = readCell(sheetId, categoryCell)
+                
+                // Check if category is empty, blank, or "Uncategorized"
+                val isUncategorized = category.isNullOrBlank() || 
+                                     category.trim().equals("Uncategorized", ignoreCase = true)
+                
+                if (isUncategorized) {
+                    // Read the full row data
+                    val rowData = readRow(sheetId, rowNum, tabName)
+                    
+                    // Verify we have at least some data (at least column B - App Name should exist)
+                    if (rowData.size >= 2 && rowData[1].isNotBlank()) {
+                        Log.d(TAG, "Found uncategorized row at $rowNum")
+                        return@withContext UncategorizedRowResult(rowNum, rowData)
+                    }
+                }
+            } catch (e: Exception) {
+                // Continue searching if there's an error reading this row
+                Log.w(TAG, "Error checking row $rowNum", e)
+            }
+        }
+        
+        Log.d(TAG, "No uncategorized row found in next $maxRows rows after row $startRow")
+        null
     }
 
     /**
