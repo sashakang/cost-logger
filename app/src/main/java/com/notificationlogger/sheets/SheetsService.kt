@@ -477,6 +477,55 @@ class SheetsService(private val context: Context) {
     }
 
     /**
+     * Read a grid of cells.
+     * @param sheetId The Google Sheet ID
+     * @param range Range reference like "Sheet1!A1:L10"
+     * @return List of rows, where each row is a List of Strings.
+     */
+    suspend fun readGrid(sheetId: String, range: String): List<List<String>> = withContext(Dispatchers.IO) {
+        val accessToken = getAccessToken() ?: return@withContext emptyList()
+
+        val url = "$SHEETS_API_BASE/spreadsheets/$sheetId/values/$range"
+
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("Authorization", "Bearer $accessToken")
+            .get()
+            .build()
+
+        try {
+            val response = httpClient.newCall(request).execute()
+            val responseBody = response.body?.string()
+            response.close()
+
+            if (!response.isSuccessful) {
+                Log.w(TAG, "Failed to read grid $range: ${response.code}")
+                return@withContext emptyList()
+            }
+
+            // Parse response: { "values": [["val1", "val2"], ["val3", "val4"]] }
+            val json = JSONObject(responseBody ?: "{}")
+            val values = json.optJSONArray("values") ?: return@withContext emptyList()
+
+            val result = mutableListOf<List<String>>()
+            for (i in 0 until values.length()) {
+                val rowJson = values.optJSONArray(i)
+                val rowList = mutableListOf<String>()
+                if (rowJson != null) {
+                    for (j in 0 until rowJson.length()) {
+                        rowList.add(rowJson.optString(j, ""))
+                    }
+                }
+                result.add(rowList)
+            }
+            result
+        } catch (e: Exception) {
+            Log.w(TAG, "Error reading grid $range", e)
+            emptyList()
+        }
+    }
+
+    /**
      * Read a range of cells from the sheet.
      * @param sheetId The Google Sheet ID
      * @param range Range reference like "Sheet1!G1:L1" or "G1:L1"
@@ -553,43 +602,59 @@ class SheetsService(private val context: Context) {
      * @param maxRows Maximum number of rows to search (default 100)
      * @return UncategorizedRowResult with row number and data, or null if not found
      */
+    /**
+     * Find the next row that needs categorization (column I is empty, blank, or "Uncategorized").
+     * Uses optimized batch reading (A:L) to avoid 100-row limit and multiple API calls.
+     *
+     * @param sheetId The Google Sheet ID
+     * @param startRow The row number to start searching from (will search from startRow + 1)
+     * @param tabName Optional tab/worksheet name. Empty string uses the first sheet.
+     * @return UncategorizedRowResult with row number and data, or null if not found
+     */
     suspend fun findNextUncategorizedRow(
         sheetId: String,
         startRow: Int,
-        tabName: String = "",
-        maxRows: Int = 100
+        tabName: String = ""
     ): UncategorizedRowResult? = withContext(Dispatchers.IO) {
         val rangePrefix = if (tabName.isBlank()) "" else "$tabName!"
         
-        // Search from startRow + 1 up to startRow + maxRows
-        for (rowNum in (startRow + 1)..(startRow + maxRows)) {
-            try {
-                // Read column I for this row to check if it's uncategorized
-                val categoryCell = "${rangePrefix}I$rowNum"
-                val category = readCell(sheetId, categoryCell)
+        // Read from the next row to the end of the sheet, columns A to L
+        // Optimized: Reading potentially large range in one go.
+        // Google Sheets API by default returns data only for populated rows.
+        val searchRange = "${rangePrefix}A${startRow + 1}:L"
+        
+        try {
+            val rows = readGrid(sheetId, searchRange)
+            
+            rows.forEachIndexed { index, rowData ->
+                // rowData is [A, B, C, D, E, F, G, H, I, J, K, L] (indices 0..11)
+                // Actual sheet row number
+                val currentRowNum = startRow + 1 + index
+
+                // Check Column B (App Name) at index 1 to ensure it's a valid transaction row
+                // and not just some stray data
+                val appName = rowData.getOrNull(1)
                 
-                // Check if category is empty, blank, or "Uncategorized"
-                val isUncategorized = category.isNullOrBlank() || 
-                                     category.trim().equals("Uncategorized", ignoreCase = true)
-                
-                if (isUncategorized) {
-                    // Read the full row data
-                    val rowData = readRow(sheetId, rowNum, tabName)
+                if (!appName.isNullOrBlank()) {
+                    // Check Column I (Category) at index 8
+                    val category = rowData.getOrNull(8)
                     
-                    // Verify we have at least some data (at least column B - App Name should exist)
-                    if (rowData.size >= 2 && rowData[1].isNotBlank()) {
-                        Log.d(TAG, "Found uncategorized row at $rowNum")
-                        return@withContext UncategorizedRowResult(rowNum, rowData)
+                    val isUncategorized = category.isNullOrBlank() || 
+                                          category.trim().equals("Uncategorized", ignoreCase = true)
+                    
+                    if (isUncategorized) {
+                        Log.d(TAG, "Found uncategorized row at $currentRowNum")
+                        return@withContext UncategorizedRowResult(currentRowNum, rowData)
                     }
                 }
-            } catch (e: Exception) {
-                // Continue searching if there's an error reading this row
-                Log.w(TAG, "Error checking row $rowNum", e)
             }
+            
+            Log.d(TAG, "No uncategorized row found after row $startRow")
+            null
+        } catch (e: Exception) {
+            Log.e(TAG, "Error finding next uncategorized row", e)
+            null
         }
-        
-        Log.d(TAG, "No uncategorized row found in next $maxRows rows after row $startRow")
-        null
     }
 
     /**
