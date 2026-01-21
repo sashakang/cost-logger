@@ -73,16 +73,12 @@ class CategorySelectionActivity : ComponentActivity() {
                         onCategorySelected = { category ->
                             if (!isLoading) {
                                 selectedCategory = category
-                            }
-                        },
-                        onApprove = {
-                            if (!isLoading && selectedCategory != null) {
                                 isLoading = true
                                 scope.launch {
                                     val success = sheetsService.writeCell(
                                         sheetId,
                                         "${rangePrefix}I$rowNumber",
-                                        selectedCategory!!
+                                        category
                                     )
                                     if (success) {
                                         Toast.makeText(
@@ -90,7 +86,7 @@ class CategorySelectionActivity : ComponentActivity() {
                                             "Saved",
                                             Toast.LENGTH_SHORT
                                         ).show()
-                                        
+
                                         // Find and open next uncategorized row
                                         openNextNotification(sheetId, rowNumber, tabName)
                                     } else {

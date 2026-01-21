@@ -27,7 +27,6 @@ fun CategorySelectionScreen(
     isLoading: Boolean,
     selectedCategory: String? = null,
     onCategorySelected: (String) -> Unit,
-    onApprove: (() -> Unit)? = null,
     onClose: () -> Unit
 ) {
     Scaffold(
@@ -122,7 +121,7 @@ fun CategorySelectionScreen(
                     }
                 }
 
-                // Selected category display and Approve button
+                // Selected category display
                 if (selectedCategory != null) {
                     Card(
                         modifier = Modifier
@@ -136,32 +135,16 @@ fun CategorySelectionScreen(
                             modifier = Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Selected:",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                    Text(
-                                        text = selectedCategory,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                }
-                                if (onApprove != null) {
-                                    Button(
-                                        onClick = onApprove,
-                                        enabled = !isLoading
-                                    ) {
-                                        Text("Approve")
-                                    }
-                                }
-                            }
+                            Text(
+                                text = "Selected:",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                text = selectedCategory,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
                         }
                     }
                 }
