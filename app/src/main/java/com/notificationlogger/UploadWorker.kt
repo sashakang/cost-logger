@@ -190,10 +190,14 @@ class UploadWorker(
                 // simple. This could be optimized with batch updates if API rate limits become an issue.
                 pendingTransactions.forEachIndexed { index, transaction ->
                     val rowNum = appendResult.startRow + index
-                    val writeSuccess = sheetsService.writeCell(sheetId, "${rangePrefix}I$rowNum", transaction.category)
-                    if (writeSuccess) {
+                    // Write Category to Column I
+                    val catSuccess = sheetsService.writeCell(sheetId, "${rangePrefix}I$rowNum", transaction.category)
+                    // Write Comment to Column J
+                    val commentSuccess = sheetsService.writeCell(sheetId, "${rangePrefix}J$rowNum", transaction.comment)
+                    
+                    if (catSuccess) {
                         database.transactionDao().markAsUploaded(transaction.id)
-                        Log.d(TAG, "Uploaded transaction ${transaction.id} to row $rowNum with category ${transaction.category}")
+                        Log.d(TAG, "Uploaded transaction ${transaction.id} to row $rowNum with category ${transaction.category} and comment ${transaction.comment}")
                     } else {
                         Log.w(TAG, "Failed to write category for transaction ${transaction.id}")
                     }

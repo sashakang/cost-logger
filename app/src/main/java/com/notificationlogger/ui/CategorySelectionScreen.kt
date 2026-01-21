@@ -13,6 +13,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 /**
  * Screen for selecting a category from a 5-column grid.
@@ -26,9 +30,12 @@ fun CategorySelectionScreen(
     categories: List<String>,
     isLoading: Boolean,
     selectedCategory: String? = null,
-    onCategorySelected: (String) -> Unit,
+    initialComment: String = "",
+    onCategorySelected: (String, String) -> Unit,
     onClose: () -> Unit
 ) {
+    var comment by remember(initialComment) { mutableStateOf(initialComment) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -95,6 +102,18 @@ fun CategorySelectionScreen(
                     }
                 }
 
+                // Comment Field
+                OutlinedTextField(
+                    value = comment,
+                    onValueChange = { comment = it },
+                    label = { Text("Comment") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp),
+                    singleLine = true,
+                    enabled = !isLoading
+                )
+
                 // Category grid
                 Box(modifier = Modifier.weight(1f)) {
                     LazyVerticalGrid(
@@ -109,7 +128,7 @@ fun CategorySelectionScreen(
                                 text = category,
                                 enabled = !isLoading,
                                 isSelected = category == selectedCategory,
-                                onClick = { onCategorySelected(category) }
+                                onClick = { onCategorySelected(category, comment) }
                             )
                         }
                     }

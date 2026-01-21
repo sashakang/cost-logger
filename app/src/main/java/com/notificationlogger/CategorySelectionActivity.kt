@@ -60,8 +60,34 @@ class CategorySelectionActivity : ComponentActivity() {
                     val scope = rememberCoroutineScope()
                     var isLoading by remember { mutableStateOf(false) }
                     var selectedCategory by remember { mutableStateOf<String?>(null) }
+                    var initialComment by remember { mutableStateOf("") }
 
                     val rangePrefix = prefs.getSheetRangePrefix()
+
+                    // PRE-SELECT CATEGORY & COMMENT: Fetch existing category and comment from sheet
+                    LaunchedEffect(Unit) {
+                        try {
+                            // Read Category from Column I
+                            val existingCategory = sheetsService.readCell(
+                                sheetId,
+                                "${rangePrefix}I$rowNumber"
+                            )
+                            if (!existingCategory.isNullOrBlank() && !existingCategory.equals("Uncategorized", ignoreCase = true)) {
+                                selectedCategory = existingCategory
+                            }
+
+                            // Read Comment from Column J
+                            val existingComment = sheetsService.readCell(
+                                sheetId,
+                                "${rangePrefix}J$rowNumber"
+                            )
+                            if (!existingComment.isNullOrBlank()) {
+                                initialComment = existingComment
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error fetching existing data", e)
+                        }
+                    }
 
                     CategorySelectionScreen(
                         appName = appName,
@@ -70,17 +96,30 @@ class CategorySelectionActivity : ComponentActivity() {
                         categories = prefs.categories,
                         isLoading = isLoading,
                         selectedCategory = selectedCategory,
-                        onCategorySelected = { category ->
+                        initialComment = initialComment,
+                        onCategorySelected = { category, comment ->
                             if (!isLoading) {
                                 selectedCategory = category
                                 isLoading = true
                                 scope.launch {
-                                    val success = sheetsService.writeCell(
+                                    // Write Category to Column I
+                                    val catSuccess = sheetsService.writeCell(
                                         sheetId,
                                         "${rangePrefix}I$rowNumber",
                                         category
                                     )
-                                    if (success) {
+                                    // Write Comment to Column J
+                                    val commentSuccess = sheetsService.writeCell(
+                                        sheetId,
+                                        "${rangePrefix}J$rowNumber",
+                                        comment
+                                    )
+                                    
+                                    if (!commentSuccess) {
+                                        Log.w(TAG, "Failed to save comment for row $rowNumber")
+                                    }
+
+                                    if (catSuccess) { // Considering category write success as primary
                                         Toast.makeText(
                                             this@CategorySelectionActivity,
                                             "Saved",

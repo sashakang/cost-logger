@@ -39,7 +39,8 @@ data class NotificationEntry(
     val title: String,
     val text: String,
     val timestamp: Long = System.currentTimeMillis(),
-    val uploaded: Boolean = false
+    val uploaded: Boolean = false,
+    val comment: String = ""
 ) {
     init {
         require(packageName.isNotBlank()) { "Package name cannot be blank" }
@@ -75,7 +76,8 @@ data class TransactionEntry(
     val currency: String,
     val category: String,
     val timestamp: Long = System.currentTimeMillis(),
-    val uploaded: Boolean = false
+    val uploaded: Boolean = false,
+    val comment: String = ""
 ) {
     /**
      * Convert to list format for Google Sheets API.

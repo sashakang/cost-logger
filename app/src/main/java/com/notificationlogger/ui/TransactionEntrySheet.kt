@@ -20,12 +20,13 @@ fun TransactionEntrySheet(
     currencies: List<String>,
     categories: List<String>,
     onDismiss: () -> Unit,
-    onSubmit: (account: String, amount: Double, currency: String, category: String) -> Unit
+    onSubmit: (account: String, amount: Double, currency: String, category: String, comment: String) -> Unit
 ) {
     var selectedAccount by remember { mutableStateOf(accounts.firstOrNull() ?: "") }
     var amount by remember { mutableStateOf("") }
     var selectedCurrency by remember { mutableStateOf(currencies.firstOrNull() ?: "") }
     var selectedCategory by remember { mutableStateOf(categories.firstOrNull() ?: "") }
+    var comment by remember { mutableStateOf("") }
 
     var accountExpanded by remember { mutableStateOf(false) }
     var currencyExpanded by remember { mutableStateOf(false) }
@@ -177,6 +178,15 @@ fun TransactionEntrySheet(
                 }
             }
 
+            // Comment Field
+            OutlinedTextField(
+                value = comment,
+                onValueChange = { comment = it },
+                label = { Text("Comment") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
             // Buttons Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -191,7 +201,7 @@ fun TransactionEntrySheet(
                 Button(
                     onClick = {
                         val amountValue = amount.toDoubleOrNull() ?: return@Button
-                        onSubmit(selectedAccount, amountValue, selectedCurrency, selectedCategory)
+                        onSubmit(selectedAccount, amountValue, selectedCurrency, selectedCategory, comment)
                     },
                     enabled = isSaveEnabled,
                     modifier = Modifier.weight(1f)

@@ -1,9 +1,10 @@
 # IN PROGRESS
-[ ] When a category is assigned to a row the app can't find the next notification to categorize.
+[ ] When opening an assign category screen show the category assigned automatically in the category column of the transactions sheet. Highlight it as a selected category on the list of the buttons of the categories.
+[ ] Add Comment to the transaction columns and to the Category assignment screen and to the Manual entry screen.
 
 # BACKLOG  
+[ ] When a category is assigned to a row the app can't find the next notification to categorize.
 [ ] RE: When a user opens a notification to assign a category after the user assigns a category to the row open next notification to categorize. Add Approve button to the screen to confirm currently assigned category. UPD: When user selects a category it assigns it to the row right away. The app does not require user to click Approve button.
-[ ] Add Comment to the transaction columns and to the Category assignment screen.
 
 # DONE
 [x] Add timestamp UTC to the left.  

@@ -237,7 +237,7 @@ private fun AppNavigation(
             onDismiss = {
                 showTransactionSheet = false
             },
-            onSubmit = { account, amount, currency, category ->
+            onSubmit = { account, amount, currency, category, comment ->
                 scope.launch {
                     try {
                         // Update recency lists
@@ -250,6 +250,7 @@ private fun AppNavigation(
                             amount = amount,
                             currency = currency,
                             category = category,
+                            comment = comment,
                             uploaded = false
                         )
                         database.transactionDao().insert(transaction)

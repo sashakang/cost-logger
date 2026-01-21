@@ -189,7 +189,7 @@ interface TransactionDao {
 
 @Database(
     entities = [NotificationEntry::class, TransactionEntry::class],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class NotificationDatabase : RoomDatabase() {
