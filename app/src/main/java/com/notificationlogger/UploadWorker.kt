@@ -192,8 +192,8 @@ class UploadWorker(
                     val rowNum = appendResult.startRow + index
                     // Write Category to Column I
                     val catSuccess = sheetsService.writeCell(sheetId, "${rangePrefix}I$rowNum", transaction.category)
-                    // Write Comment to Column J
-                    val commentSuccess = sheetsService.writeCell(sheetId, "${rangePrefix}J$rowNum", transaction.comment)
+                    // Write Comment to Column M
+                    val commentSuccess = sheetsService.writeCell(sheetId, "${rangePrefix}M$rowNum", transaction.comment)
                     
                     if (catSuccess) {
                         database.transactionDao().markAsUploaded(transaction.id)

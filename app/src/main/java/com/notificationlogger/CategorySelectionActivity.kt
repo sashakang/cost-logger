@@ -76,10 +76,10 @@ class CategorySelectionActivity : ComponentActivity() {
                                 selectedCategory = existingCategory
                             }
 
-                            // Read Comment from Column J
+                            // Read Comment from Column M
                             val existingComment = sheetsService.readCell(
                                 sheetId,
-                                "${rangePrefix}J$rowNumber"
+                                "${rangePrefix}M$rowNumber"
                             )
                             if (!existingComment.isNullOrBlank()) {
                                 initialComment = existingComment
@@ -108,10 +108,10 @@ class CategorySelectionActivity : ComponentActivity() {
                                         "${rangePrefix}I$rowNumber",
                                         category
                                     )
-                                    // Write Comment to Column J
+                                    // Write Comment to Column M
                                     val commentSuccess = sheetsService.writeCell(
                                         sheetId,
-                                        "${rangePrefix}J$rowNumber",
+                                        "${rangePrefix}M$rowNumber",
                                         comment
                                     )
                                     
@@ -151,7 +151,7 @@ class CategorySelectionActivity : ComponentActivity() {
      */
     private suspend fun openNextNotification(sheetId: String, currentRowNumber: Int, tabName: String) {
         try {
-            val nextRow = sheetsService.findNextUncategorizedRow(sheetId, currentRowNumber, tabName)
+            val nextRow = sheetsService.findAnyUncategorizedRow(sheetId, tabName)
             
             if (nextRow != null && nextRow.rowData.size >= 6) {
                 // Parse row data: [UTC Timestamp, App Name, Title, Text, Local Timestamp, Notification Key, ...]
