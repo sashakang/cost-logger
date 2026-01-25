@@ -368,7 +368,7 @@ class SheetsService(private val context: Context) {
     }
 
     /**
-     * Copy formulas + formatting from template row (G4:L4) into appended rows.
+     * Copy formulas + formatting from template row (G18:L18) into appended rows.
      */
     private fun copyTemplateToRows(
         accessToken: String,
@@ -379,8 +379,8 @@ class SheetsService(private val context: Context) {
     ): Boolean {
         if (rowCount <= 0) return true
 
-        val templateStartRowIndex = 3
-        val templateEndRowIndex = 4
+        val templateStartRowIndex = 17
+        val templateEndRowIndex = 18
         val templateStartColumnIndex = 6
         val templateEndColumnIndex = 12
 
