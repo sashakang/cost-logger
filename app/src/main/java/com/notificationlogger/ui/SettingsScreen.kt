@@ -21,7 +21,7 @@ import com.notificationlogger.NotificationListener
 import com.notificationlogger.data.AppPreferences
 
 /** App version - update this when releasing new versions */
-const val APP_VERSION = "0.3.4.0"
+const val APP_VERSION = "0.3.3.0"
 
 /**
  * Settings screen with configuration options, status, and account management.
