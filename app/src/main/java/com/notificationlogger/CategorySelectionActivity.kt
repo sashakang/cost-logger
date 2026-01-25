@@ -62,7 +62,7 @@ class CategorySelectionActivity : ComponentActivity() {
                     var selectedCategory by remember { mutableStateOf<String?>(null) }
                     var initialComment by remember { mutableStateOf("") }
 
-                    val rangePrefix = prefs.getSheetRangePrefix()
+                    val rangePrefix = if (tabName.isBlank()) "" else "$tabName!"
 
                     // PRE-SELECT CATEGORY & COMMENT: Fetch existing category and comment from sheet
                     LaunchedEffect(Unit) {
@@ -127,7 +127,7 @@ class CategorySelectionActivity : ComponentActivity() {
                                         ).show()
 
                                         // Find and open next uncategorized row
-                                        openNextNotification(sheetId, rowNumber, tabName)
+                                        openNextNotification(rowNumber, appName)
                                     } else {
                                         Toast.makeText(
                                             this@CategorySelectionActivity,
@@ -147,34 +147,27 @@ class CategorySelectionActivity : ComponentActivity() {
     }
 
     /**
-     * Find and open the next uncategorized notification.
+     * Find and open the next uncategorized notification from active notifications.
      */
-    private suspend fun openNextNotification(sheetId: String, currentRowNumber: Int, tabName: String) {
+    private suspend fun openNextNotification(currentRowNumber: Int, appName: String) {
         try {
-            val nextRow = sheetsService.findAnyUncategorizedRow(sheetId, tabName)
-            
-            if (nextRow != null && nextRow.rowData.size >= 6) {
-                // Parse row data: [UTC Timestamp, App Name, Title, Text, Local Timestamp, Notification Key, ...]
-                val nextAppName = if (nextRow.rowData.size > 1) nextRow.rowData[1] else ""
-                val nextTitle = if (nextRow.rowData.size > 2) nextRow.rowData[2] else ""
-                val nextText = if (nextRow.rowData.size > 3) nextRow.rowData[3] else ""
-                
-                // Open CategorySelectionActivity for the next row
+            val nextNotification = findNextActiveNotification(currentRowNumber, appName)
+            if (nextNotification != null) {
+                val nextTabName = nextNotification.tabName.ifBlank { prefs.sheetTabName }
                 val intent = Intent(this@CategorySelectionActivity, CategorySelectionActivity::class.java).apply {
-                    putExtra(EXTRA_ROW_NUMBER, nextRow.rowNumber)
-                    putExtra(EXTRA_APP_NAME, nextAppName)
-                    putExtra(EXTRA_TRANSACTION_TITLE, nextTitle)
-                    putExtra(EXTRA_TRANSACTION_TEXT, nextText)
-                    putExtra(EXTRA_TAB_NAME, tabName)
+                    putExtra(EXTRA_ROW_NUMBER, nextNotification.rowNumber)
+                    putExtra(EXTRA_APP_NAME, nextNotification.appName)
+                    putExtra(EXTRA_TRANSACTION_TITLE, nextNotification.title)
+                    putExtra(EXTRA_TRANSACTION_TEXT, nextNotification.text)
+                    putExtra(EXTRA_TAB_NAME, nextTabName)
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 }
                 startActivity(intent)
                 finish()
             } else {
-                // No more uncategorized rows found
                 Toast.makeText(
                     this@CategorySelectionActivity,
-                    "All transactions categorized",
+                    "No more notifications to categorize",
                     Toast.LENGTH_SHORT
                 ).show()
                 moveTaskToBack(true)
@@ -189,6 +182,47 @@ class CategorySelectionActivity : ComponentActivity() {
             moveTaskToBack(true)
         }
     }
+
+    private fun findNextActiveNotification(currentRowNumber: Int, appName: String): ActiveNotification? {
+        val listener = NotificationListener.getInstance()
+        if (listener == null) {
+            Log.w(TAG, "Notification listener not running; cannot find next notification")
+            return null
+        }
+
+        val activeNotifications = listener.activeNotifications ?: emptyArray()
+        return activeNotifications
+            .mapNotNull { sbn ->
+                val notification = sbn.notification
+                if (sbn.packageName != applicationContext.packageName) return@mapNotNull null
+                if (notification.channelId != NotificationLoggerApp.CHANNEL_ID) return@mapNotNull null
+
+                val extras = notification.extras ?: return@mapNotNull null
+                val rowNumber = extras.getInt(EXTRA_ROW_NUMBER, -1)
+                val extraAppName = extras.getString(EXTRA_APP_NAME).orEmpty()
+                if (rowNumber == -1 || rowNumber == currentRowNumber) return@mapNotNull null
+                if (extraAppName != appName) return@mapNotNull null
+
+                ActiveNotification(
+                    rowNumber = rowNumber,
+                    appName = extraAppName,
+                    title = extras.getString(EXTRA_TRANSACTION_TITLE).orEmpty(),
+                    text = extras.getString(EXTRA_TRANSACTION_TEXT).orEmpty(),
+                    tabName = extras.getString(EXTRA_TAB_NAME).orEmpty(),
+                    postTime = sbn.postTime
+                )
+            }
+            .minByOrNull { it.postTime }
+    }
+
+    private data class ActiveNotification(
+        val rowNumber: Int,
+        val appName: String,
+        val title: String,
+        val text: String,
+        val tabName: String,
+        val postTime: Long
+    )
 
     companion object {
         private const val TAG = "CategorySelectionActivity"

@@ -9,29 +9,29 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Capture & Upload
 
-- [ ] **CAP-01**: User can capture transactions from whitelisted app notifications
-- [ ] **CAP-02**: User can add manual transactions in the app
-- [ ] **CAP-03**: User's transactions upload to Google Sheets automatically with retries on failure
-- [ ] **CAP-04**: User can manage the notification whitelist to control which apps are ingested
+- [x] **CAP-01**: User can capture transactions from whitelisted app notifications
+- [x] **CAP-02**: User can add manual transactions in the app
+- [x] **CAP-03**: User's transactions upload to Google Sheets automatically with retries on failure
+- [x] **CAP-04**: User can manage the notification whitelist to control which apps are ingested
 
 ### Sheet Schema
 
-- [ ] **SHEET-01**: User's transactions are written to fixed columns (A–F + category/comment columns) for reporting
-- [ ] **SHEET-02**: New rows copy formulas and formatting from template range `G4:L4`
-- [ ] **SHEET-03**: User maintains a category list in the app settings (not synchronized to Sheets)
+- [x] **SHEET-01**: User's transactions are written to fixed columns (A–F + category/comment columns) for reporting
+- [x] **SHEET-02**: New rows copy formulas and formatting from template range `G4:L4`
+- [x] **SHEET-03**: User maintains a category list in the app settings (not synchronized to Sheets)
 
 ### Categorization
 
-- [ ] **CAT-01**: User can assign a category in the app using the category list from the app configuration screen
-- [ ] **CAT-02**: User can add or edit transaction comments in the app and have them written to Sheets
-- [ ] **CAT-03**: User can review an auto-categorized queue in the app and fix categories
-- [ ] **CAT-04**: User can rely on sheet rules to auto-assign categories for new rows
+- [x] **CAT-01**: User can assign a category in the app using the category list from the app configuration screen
+- [x] **CAT-02**: User can add or edit transaction comments in the app and have them written to Sheets
+- [x] **CAT-03**: User can review an auto-categorized queue in the app and fix categories
+- [x] **CAT-04**: User can rely on sheet rules to auto-assign categories for new rows
 
 ### Sync & Consistency
 
-- [ ] **SYNC-01**: User edits categories or comments in Sheets and the app reflects those updates
-- [ ] **SYNC-02**: User's manual category overrides are preserved even when sheet rules run
-- [ ] **SYNC-03**: User does not see duplicate rows created by retries (stable transaction IDs)
+- [x] **SYNC-01**: User edits categories or comments in Sheets and the app reflects those updates
+- [x] **SYNC-02**: User's manual category overrides are preserved even when sheet rules run
+- [x] **SYNC-03**: User does not see duplicate rows created by retries (stable transaction IDs)
 
 ## v2 Requirements
 
@@ -66,26 +66,26 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CAP-01 | Phase [TBD] | Pending |
-| CAP-02 | Phase [TBD] | Pending |
-| CAP-03 | Phase [TBD] | Pending |
-| CAP-04 | Phase [TBD] | Pending |
-| SHEET-01 | Phase [TBD] | Pending |
-| SHEET-02 | Phase [TBD] | Pending |
-| SHEET-03 | Phase [TBD] | Pending |
-| CAT-01 | Phase [TBD] | Pending |
-| CAT-02 | Phase [TBD] | Pending |
-| CAT-03 | Phase [TBD] | Pending |
-| CAT-04 | Phase [TBD] | Pending |
-| SYNC-01 | Phase [TBD] | Pending |
-| SYNC-02 | Phase [TBD] | Pending |
-| SYNC-03 | Phase [TBD] | Pending |
+| CAP-01 | Phase 1 | Complete |
+| CAP-02 | Phase 1 | Complete |
+| CAP-03 | Phase 1 | Complete |
+| CAP-04 | Phase 1 | Complete |
+| SHEET-01 | Phase 1 | Complete |
+| SHEET-02 | Phase 1 | Complete |
+| SHEET-03 | Phase 2 | Complete |
+| CAT-01 | Phase 2 | Complete |
+| CAT-02 | Phase 2 | Complete |
+| CAT-03 | Phase 2 | Complete |
+| CAT-04 | Phase 3 | Complete |
+| SYNC-01 | Phase 3 | Complete |
+| SYNC-02 | Phase 3 | Complete |
+| SYNC-03 | Phase 1 | Complete |
 
 **Coverage:**
 - v1 requirements: 14 total
-- Mapped to phases: 0
-- Unmapped: 14 ⚠️
+- Mapped to phases: 14
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-01-25*
-*Last updated: 2026-01-25 after initial definition*
+*Last updated: 2026-01-25 after validation*

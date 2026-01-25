@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Bundle
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -194,12 +195,15 @@ class UploadWorker(
                     val catSuccess = sheetsService.writeCell(sheetId, "${rangePrefix}I$rowNum", transaction.category)
                     // Write Comment to Column M
                     val commentSuccess = sheetsService.writeCell(sheetId, "${rangePrefix}M$rowNum", transaction.comment)
-                    
+
                     if (catSuccess) {
                         database.transactionDao().markAsUploaded(transaction.id)
                         Log.d(TAG, "Uploaded transaction ${transaction.id} to row $rowNum with category ${transaction.category} and comment ${transaction.comment}")
                     } else {
                         Log.w(TAG, "Failed to write category for transaction ${transaction.id}")
+                    }
+                    if (!commentSuccess) {
+                        Log.w(TAG, "Failed to write comment for transaction ${transaction.id}")
                     }
                 }
                 true
@@ -218,13 +222,17 @@ class UploadWorker(
      * Clicking the notification opens CategorySelectionActivity to change the category.
      */
     private fun showCategoryNotification(entry: NotificationEntry, category: String, rowNumber: Int, tabName: String) {
+        val notificationExtras = Bundle().apply {
+            putInt(CategorySelectionActivity.EXTRA_ROW_NUMBER, rowNumber)
+            putString(CategorySelectionActivity.EXTRA_APP_NAME, entry.appName)
+            putString(CategorySelectionActivity.EXTRA_TRANSACTION_TITLE, entry.title)
+            putString(CategorySelectionActivity.EXTRA_TRANSACTION_TEXT, entry.text)
+            putString(CategorySelectionActivity.EXTRA_TAB_NAME, tabName)
+        }
+
         // Create intent to open CategorySelectionActivity
         val intent = Intent(applicationContext, CategorySelectionActivity::class.java).apply {
-            putExtra(CategorySelectionActivity.EXTRA_ROW_NUMBER, rowNumber)
-            putExtra(CategorySelectionActivity.EXTRA_APP_NAME, entry.appName)
-            putExtra(CategorySelectionActivity.EXTRA_TRANSACTION_TITLE, entry.title)
-            putExtra(CategorySelectionActivity.EXTRA_TRANSACTION_TEXT, entry.text)
-            putExtra(CategorySelectionActivity.EXTRA_TAB_NAME, tabName)
+            putExtras(notificationExtras)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
 
@@ -242,6 +250,7 @@ class UploadWorker(
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
+            .addExtras(notificationExtras)
             .build()
 
         try {
