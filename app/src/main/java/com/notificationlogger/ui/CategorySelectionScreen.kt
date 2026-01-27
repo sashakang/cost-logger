@@ -32,6 +32,7 @@ fun CategorySelectionScreen(
     selectedCategory: String? = null,
     initialComment: String = "",
     onCategorySelected: (String, String) -> Unit,
+    onApprove: (String) -> Unit,
     onClose: () -> Unit
 ) {
     var comment by remember(initialComment) { mutableStateOf(initialComment) }
@@ -142,28 +143,40 @@ fun CategorySelectionScreen(
 
                 // Selected category display
                 if (selectedCategory != null) {
-                    Card(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(8.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer
-                        )
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        Card(
+                            modifier = Modifier.weight(1f),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer
+                            )
                         ) {
-                            Text(
-                                text = "Selected:",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                            Text(
-                                text = selectedCategory,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text(
+                                    text = "Selected:",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Text(
+                                    text = selectedCategory,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+                        Button(
+                            onClick = { onApprove(comment) },
+                            enabled = !isLoading,
+                            modifier = Modifier.padding(start = 8.dp)
+                        ) {
+                            Text("Approve")
                         }
                     }
                 }

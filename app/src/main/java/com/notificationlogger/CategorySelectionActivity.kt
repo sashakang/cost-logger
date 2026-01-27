@@ -139,6 +139,36 @@ class CategorySelectionActivity : ComponentActivity() {
                                 }
                             }
                         },
+                        onApprove = { comment ->
+                            if (!isLoading) {
+                                isLoading = true
+                                scope.launch {
+                                    val commentSuccess = if (comment.isNotBlank()) {
+                                        sheetsService.writeCell(
+                                            sheetId,
+                                            "${rangePrefix}M$rowNumber",
+                                            comment
+                                        )
+                                    } else {
+                                        true
+                                    }
+
+                                    if (!commentSuccess) {
+                                        Log.w(TAG, "Failed to save comment for row $rowNumber")
+                                        Toast.makeText(
+                                            this@CategorySelectionActivity,
+                                            "Failed to save comment. Try again.",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                        isLoading = false
+                                        return@launch
+                                    }
+
+                                    openNextNotification(rowNumber, appName)
+                                    finish()
+                                }
+                            }
+                        },
                         onClose = { finish() }
                     )
                 }

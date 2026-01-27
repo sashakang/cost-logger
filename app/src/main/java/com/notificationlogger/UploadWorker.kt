@@ -65,22 +65,50 @@ class UploadWorker(
             return if (transactionSuccess) Result.success() else Result.retry()
         }
 
-        Log.d(TAG, "Uploading ${pendingEntries.size} notification entries to sheet: $sheetId (tab: ${tabName.ifBlank { "first" }})")
+        // Check for duplicates by reading existing notification keys from column F
+        val existingKeys = try {
+            sheetsService.readColumnF(sheetId, tabName)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to read column F for duplicate detection, proceeding with upload", e)
+            emptySet()
+        }
 
-        // Upload batch with row info
-        val (uploadResult, appendResult) = sheetsService.uploadBatchWithRowInfo(pendingEntries, sheetId, tabName)
+        // Separate entries into duplicates and new entries
+        val (duplicates, newEntries) = pendingEntries.partition { entry ->
+            existingKeys.contains(entry.notificationKey)
+        }
+
+        // Mark duplicates as uploaded since they already exist in the sheet
+        if (duplicates.isNotEmpty()) {
+            Log.d(TAG, "Found ${duplicates.size} duplicate notification entries, marking as uploaded")
+            duplicates.forEach { entry ->
+                database.notificationDao().markAsUploaded(entry.id)
+            }
+        }
+
+        // If all entries were duplicates, proceed to transaction upload
+        if (newEntries.isEmpty()) {
+            Log.d(TAG, "All ${pendingEntries.size} notification entries were duplicates, nothing new to upload")
+            val transactionSuccess = uploadTransactions(sheetId, tabName)
+            return if (transactionSuccess) Result.success() else Result.retry()
+        }
+
+        Log.d(TAG, "Uploading ${newEntries.size} new notification entries (${duplicates.size} duplicates skipped) to sheet: $sheetId (tab: ${tabName.ifBlank { "first" }})")
+
+        // Upload batch with row info (only new entries)
+        val (uploadResult, appendResult) = sheetsService.uploadBatchWithRowInfo(newEntries, sheetId, tabName)
 
         return when (uploadResult) {
             is UploadResult.Success -> {
-                // Mark entries as uploaded
-                pendingEntries.forEach { entry ->
+                // Mark new entries as uploaded (duplicates were already marked earlier)
+                newEntries.forEach { entry ->
                     database.notificationDao().markAsUploaded(entry.id)
                 }
-                Log.d(TAG, "Successfully uploaded ${uploadResult.rowsAdded} entries")
+                Log.d(TAG, "Successfully uploaded ${uploadResult.rowsAdded} new entries")
 
-                // Read categories and show notifications
+                // Read categories and show notifications (only for newly uploaded entries)
                 if (appendResult?.startRow != null) {
-                    showCategoryNotifications(pendingEntries, sheetId, tabName, appendResult.startRow)
+                    showCategoryNotifications(newEntries, sheetId, tabName, appendResult.startRow)
                 }
 
                 // Upload transactions after notifications

@@ -7,6 +7,7 @@ An Android app that captures device notifications from selected apps and logs th
 - **Selective Notification Capture**: Whitelist specific apps to monitor
 - **Google Sheets Integration**: Automatically logs notifications via OAuth 2.0
 - **Offline Support**: Queues notifications locally when offline, uploads when connected
+- **Category Review**: Approve auto-selected categories while optionally saving comments
 - **Privacy-Focused**: No `QUERY_ALL_PACKAGES` permission, user controls which apps to monitor
 
 ## Requirements

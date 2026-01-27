@@ -587,6 +587,30 @@ class SheetsService(private val context: Context) {
     }
 
     /**
+     * Read all values from column F (notificationKey column) from the sheet.
+     * @param sheetId The Google Sheet ID
+     * @param tabName Optional tab/worksheet name. Empty string uses the first sheet.
+     * @return Set of existing notification keys (non-blank values only)
+     */
+    suspend fun readColumnF(sheetId: String, tabName: String = ""): Set<String> = withContext(Dispatchers.IO) {
+        val rangePrefix = if (tabName.isBlank()) "" else "$tabName!"
+        val range = "${rangePrefix}F:F"
+        
+        try {
+            val rows = readGrid(sheetId, range)
+            // Each row is a list with one element (the F column value)
+            // Extract first element from each row and filter out blanks
+            rows.mapNotNull { row ->
+                val value = row.getOrNull(0)?.trim()
+                if (value.isNullOrBlank()) null else value
+            }.toSet()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error reading column F for duplicate detection", e)
+            emptySet()
+        }
+    }
+
+    /**
      * Result of finding next uncategorized row
      */
     data class UncategorizedRowResult(
